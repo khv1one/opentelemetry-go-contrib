@@ -16,7 +16,9 @@ package otelgocql // import "go.opentelemetry.io/contrib/instrumentation/github.
 
 import (
 	"context"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gocql/gocql"
 
@@ -72,7 +74,7 @@ func (o *OTelQueryObserver) ObserveQuery(ctx context.Context, observedQuery gocq
 
 		ctx, span := o.tracer.Start(
 			ctx,
-			observedQuery.Statement,
+			sqlOperationName(observedQuery.Statement),
 			trace.WithTimestamp(observedQuery.Start),
 			trace.WithAttributes(attributes...),
 			trace.WithSpanKind(trace.SpanKindClient),
@@ -207,4 +209,17 @@ func includeKeyValues(host *gocql.HostInfo, values ...attribute.KeyValue) []attr
 // nanoToMilliseconds converts nanoseconds to milliseconds.
 func nanoToMilliseconds(ns int64) int64 {
 	return ns / int64(time.Millisecond)
+}
+
+const sqlOperationUnknown = "UNKNOWN"
+
+func sqlOperationName(stmt string) string {
+	stmt = strings.TrimSpace(stmt)
+	end := strings.IndexFunc(stmt, unicode.IsSpace)
+	if end < 0 && len(stmt) > 0 {
+		end = len(stmt)
+	} else if end < 0 {
+		return sqlOperationUnknown
+	}
+	return strings.ToUpper(stmt[:end])
 }
